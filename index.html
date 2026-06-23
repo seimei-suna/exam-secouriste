@@ -578,7 +578,6 @@
   // BINDINGS
   // ================================================================
   el('startBtn').addEventListener('click',startExam);
-  el('codeInput').addEventListener('keydown',function(e){if(e.key==='Enter')el('nameInput').focus();});
   el('nameInput').addEventListener('keydown',function(e){if(e.key==='Enter')startExam();});
   el('nextBtn').addEventListener('click',nextQ);
 })();
