@@ -217,9 +217,8 @@
         </div>
         <div id="createErr" class="err" style="display:none;margin-top:12px;"></div>
         <div id="codeResult" class="code-display" style="display:none;">
-          <div class="code-label">Code de la session :</div>
-          <div class="code-value" id="codeValue"></div>
-          <div class="code-hint">Partagez ce code aux candidats pour rejoindre l'examen.</div>
+          <div class="code-label">Session créée avec succès</div>
+          <div class="code-hint">Les candidats peuvent maintenant la sélectionner sur la page d'examen.</div>
         </div>
       </div>
 
@@ -233,7 +232,6 @@
           <table>
             <thead>
               <tr>
-                <th>Code</th>
                 <th>Thèmes</th>
                 <th>Questions</th>
                 <th>Durée</th>
@@ -264,9 +262,6 @@
               <option value="recue">Reçus</option>
               <option value="recale">Recalés</option>
             </select>
-            <select id="filterSession">
-              <option value="">Toutes les sessions</option>
-            </select>
           </div>
           <div class="left">
             <button class="btn ghost" id="refreshBtn">Actualiser</button>
@@ -279,7 +274,6 @@
               <tr>
                 <th data-sort="created_at">Date</th>
                 <th data-sort="name">Candidat</th>
-                <th>Session</th>
                 <th data-sort="score">Score</th>
                 <th data-sort="correct">Bonnes rép.</th>
                 <th data-sort="time_left">Temps restant</th>
@@ -478,9 +472,8 @@
     el('createErr').style.display='block';
   }
 
-  function showCreatedCode(code){
+  function showCreatedCode(){
     el('codeResult').style.display='block';
-    el('codeValue').textContent=code;
     el('createErr').style.display='none';
   }
 
@@ -517,7 +510,6 @@
         var durMin=Math.floor((s.timer_sec||300)/60);
         var tr=document.createElement('tr');
         tr.innerHTML=
-          '<td style="font-family:\'Cinzel\',serif;font-weight:700;color:var(--gold);letter-spacing:.1em;font-size:1.05rem;">'+esc(s.code)+'</td>'+
           '<td>'+themeBadges(themes)+'</td>'+
           '<td>'+esc(s.nb_questions)+'</td>'+
           '<td>'+durMin+' min</td>'+
@@ -551,37 +543,18 @@
     sb.from('exam_secouriste_results').select('*').order('created_at',{ascending:false}).then(function(res){
       if(res.error){el('tbody').innerHTML='<tr><td colspan="9" class="err">'+esc(res.error.message)+'</td></tr>';return;}
       results=res.data||[];
-      populateSessionFilter();
       renderResults();
-    });
-  }
-
-  function populateSessionFilter(){
-    var sel=el('filterSession');
-    var existing={};
-    /* keep first option */
-    while(sel.options.length>1)sel.remove(1);
-    results.forEach(function(r){
-      if(r.session_code&&!existing[r.session_code]){
-        existing[r.session_code]=true;
-        var opt=document.createElement('option');
-        opt.value=r.session_code;
-        opt.textContent=r.session_code;
-        sel.appendChild(opt);
-      }
     });
   }
 
   function renderResults(){
     var q=el('search').value.toLowerCase().trim();
     var fs=el('filterStatus').value;
-    var fSess=el('filterSession').value;
 
     var list=results.filter(function(r){
       var okName=!q||(r.name||'').toLowerCase().indexOf(q)>=0;
       var okStatus=!fs||(getStatus(r)===fs);
-      var okSession=!fSess||r.session_code===fSess;
-      return okName&&okStatus&&okSession;
+      return okName&&okStatus;
     });
 
     /* summary */
@@ -617,7 +590,6 @@
       tr.innerHTML=
         '<td class="muted">'+fmtDate(r.created_at)+'</td>'+
         '<td style="font-weight:600">'+esc(r.name)+'</td>'+
-        '<td style="font-family:\'Cinzel\',serif;font-size:.9rem;color:var(--gold);letter-spacing:.08em;">'+esc(r.session_code||'-')+'</td>'+
         '<td class="score-cell '+scoreClass+'">'+(r.eliminated?'—':r.score!=null?r.score+'%':'-')+'</td>'+
         '<td>'+(r.eliminated?'—':r.correct!=null?r.correct:'-')+' / '+(r.eliminated?'—':r.total!=null?r.total:'-')+'</td>'+
         '<td class="time-cell">'+tl+'</td>'+
@@ -661,7 +633,7 @@
 
   /* ─── DETAIL MODAL ─── */
   function openDetail(r){
-    el('modalTitle').textContent='Détail — '+r.name+(r.session_code?' ('+r.session_code+')':'')+' — '+fmtDate(r.created_at);
+    el('modalTitle').textContent='Détail — '+r.name+' — '+fmtDate(r.created_at);
     var body=el('modalBody');
     body.innerHTML='';
     if(r.eliminated){
@@ -721,14 +693,13 @@
   /* ─── FILTERS ─── */
   el('search').addEventListener('input',renderResults);
   el('filterStatus').addEventListener('change',renderResults);
-  el('filterSession').addEventListener('change',renderResults);
   el('refreshBtn').addEventListener('click',function(){loadResults();});
 
   /* ─── CSV EXPORT ─── */
   el('csvBtn').addEventListener('click',function(){
     if(!results.length)return;
-    var cols=['created_at','name','session_code','score','correct','total','time_left','statut'];
-    var headers=['Date','Candidat','Session','Score','Correctes','Total','Temps restant (s)','Statut'];
+    var cols=['created_at','name','score','correct','total','time_left','statut'];
+    var headers=['Date','Candidat','Score','Correctes','Total','Temps restant (s)','Statut'];
     var csv=headers.join(',')+'\n'+results.map(function(r){
       return cols.map(function(c){
         var v=r[c]==null?'':(''+r[c]).replace(/"/g,'""');
