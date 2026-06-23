@@ -97,6 +97,20 @@
   footer{text-align:center;margin-top:28px;color:var(--rust);font-style:italic;font-size:.95rem;}
   footer .seal{color:var(--ocre);font-family:'Cinzel',serif;}
   .ico{width:1em;height:1em;vertical-align:-.14em;margin-right:.25em}
+  .session-card{padding:14px 16px;margin-bottom:8px;border:1px solid rgba(181,113,43,.4);
+    border-radius:10px;cursor:pointer;transition:.18s;background:rgba(20,12,4,.4);}
+  .session-card:hover{background:rgba(181,113,43,.14);border-color:var(--ocre);}
+  .session-card.selected{background:rgba(181,113,43,.25);border-color:var(--gold);box-shadow:0 0 12px rgba(255,216,107,.15);}
+  .session-card .sc-title{font-family:'Cinzel',serif;font-weight:700;color:var(--sand-1);font-size:1.05rem;}
+  .session-card .sc-info{font-size:.9rem;color:var(--sand-deep);margin-top:4px;}
+  .session-card .sc-themes{margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;}
+  .theme-tag{display:inline-block;font-size:.75rem;padding:2px 8px;border-radius:5px;font-family:'Cinzel',serif;font-weight:700;letter-spacing:.03em;}
+  .theme-tag.hemorragies{background:rgba(196,69,58,.2);color:#e07060;}
+  .theme-tag.fractures{background:rgba(200,155,94,.2);color:var(--sand-deep);}
+  .theme-tag.brulures{background:rgba(232,160,96,.2);color:#e8a060;}
+  .theme-tag.arret_cardiaque{background:rgba(196,69,58,.3);color:var(--blood-light);}
+  .theme-tag.sutures{background:rgba(100,160,220,.2);color:#8ac0e8;}
+  .theme-tag.soins_generaux{background:rgba(61,220,132,.15);color:var(--chakra);}
 </style>
 </head>
 <body>
@@ -127,10 +141,10 @@
       <p class="hint" style="margin-top:8px;color:var(--blood-light);"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.6" fill="currentColor" stroke="none"/></svg> Une seule tentative par session. Sois pr&ecirc;t avant de commencer.</p>
     </div>
     <div class="panel">
-      <h2>Identification</h2>
+      <h2>Session d'examen</h2>
       <div class="field">
-        <label for="codeInput">Code de session</label>
-        <input type="text" id="codeInput" placeholder="Ex : SEC-4827" maxlength="20" autocomplete="off">
+        <label>Choisis ta session</label>
+        <div id="sessionList" style="margin-bottom:14px;color:var(--sand-deep);font-style:italic;">Chargement des sessions...</div>
       </div>
       <div class="field">
         <label for="nameInput">Nom de shinobi</label>
@@ -340,77 +354,74 @@
   // ================================================================
   // STATE
   // ================================================================
+  var THEME_LABELS={hemorragies:'Hémorragies',fractures:'Fractures',brulures:'Brûlures',arret_cardiaque:'Arrêt cardiaque',sutures:'Sutures',soins_generaux:'Soins généraux'};
   var NB_Q=15, TIMER_SEC=300;
-  var session=null; // fetched session row
+  var session=null;
+  var selectedSessionId=null;
+  var sessions=[];
   var st={name:"",code:"",seq:[],idx:0,answers:[],selected:-1,timerId:null,timeLeft:TIMER_SEC,done:false};
 
-  // ================================================================
-  // SVG icon helpers (inline, to match aspirant pattern)
-  // ================================================================
   var svgWarn='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.4" r="0.6" fill="currentColor" stroke="none"/></svg>';
   var svgOk='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>';
 
-  // ================================================================
-  // START — fetch session from Supabase then show elim question
-  // ================================================================
+  // ── LOAD SESSIONS ──
+  function loadSessions(){
+    var list=el('sessionList');
+    var URL=(typeof SUPABASE_URL!=='undefined')?SUPABASE_URL:null;
+    var KEY=(typeof SUPABASE_KEY!=='undefined')?SUPABASE_KEY:null;
+    if(!URL||!KEY){list.innerHTML='<span style="color:var(--blood-light);">Configuration Supabase absente.</span>';return;}
+    var sb=window.supabase.createClient(URL,KEY);
+    sb.from('exam_secouriste_sessions').select('*').eq('actif',true).order('created_at',{ascending:false}).then(function(res){
+      if(res.error){list.innerHTML='<span style="color:var(--blood-light);">Erreur : '+res.error.message+'</span>';return;}
+      sessions=res.data||[];
+      if(sessions.length===0){list.innerHTML='<span style="color:var(--sand-deep);font-style:italic;">Aucune session active pour le moment. Contacte un formateur.</span>';return;}
+      list.innerHTML='';
+      sessions.forEach(function(s){
+        var div=document.createElement('div');
+        div.className='session-card';
+        var themes=(s.themes||[]).map(function(t){return '<span class="theme-tag '+t+'">'+(THEME_LABELS[t]||t)+'</span>';}).join('');
+        var dur=Math.floor((s.timer_sec||300)/60);
+        div.innerHTML='<div class="sc-title">Session de '+(s.created_by||'Formateur')+'</div>'+
+          '<div class="sc-info">'+(s.nb_questions||15)+' questions · '+dur+' min</div>'+
+          '<div class="sc-themes">'+themes+'</div>';
+        div.addEventListener('click',function(){
+          selectedSessionId=s.id;
+          list.querySelectorAll('.session-card').forEach(function(c){c.classList.remove('selected');});
+          div.classList.add('selected');
+        });
+        list.appendChild(div);
+      });
+    });
+  }
+  loadSessions();
+
+  // ── START ──
   function startExam(){
-    var code=el('codeInput').value.trim();
     var nm=el('nameInput').value.trim();
     var err=el('errorMsg');
     err.style.display='none';
 
-    if(!code){
-      el('codeInput').style.borderColor='var(--blood-light)';
-      setTimeout(function(){el('codeInput').style.borderColor='';},900);
-      return;
+    if(!selectedSessionId){
+      err.innerHTML=svgWarn+' Sélectionne une session d\'examen.';
+      err.style.display='block';return;
     }
     if(!nm){
       el('nameInput').style.borderColor='var(--blood-light)';
-      setTimeout(function(){el('nameInput').style.borderColor='';},900);
-      return;
+      setTimeout(function(){el('nameInput').style.borderColor='';},900);return;
     }
+
+    session=sessions.find(function(s){return s.id===selectedSessionId;});
+    if(!session){err.innerHTML=svgWarn+' Session introuvable.';err.style.display='block';return;}
 
     st.name=nm;
-    st.code=code;
-    el('startBtn').disabled=true;
-    el('startBtn').textContent='Chargement...';
+    st.code=session.code||'';
+    NB_Q=session.nb_questions||15;
+    TIMER_SEC=session.timer_sec||300;
+    st.timeLeft=TIMER_SEC;
 
-    var URL=(typeof SUPABASE_URL!=='undefined')?SUPABASE_URL:null;
-    var KEY=(typeof SUPABASE_KEY!=='undefined')?SUPABASE_KEY:null;
-    if(!URL||!KEY){
-      err.innerHTML=svgWarn+' Configuration Supabase absente.';
-      err.style.display='block';
-      el('startBtn').disabled=false;el('startBtn').textContent='Commencer';
-      return;
-    }
-
-    var sb=window.supabase.createClient(URL,KEY);
-    sb.from('exam_secouriste_sessions').select('*').eq('code',code).eq('actif',true).then(function(res){
-      if(res.error){
-        err.innerHTML=svgWarn+' Erreur : '+res.error.message;
-        err.style.display='block';
-        el('startBtn').disabled=false;el('startBtn').textContent='Commencer';
-        return;
-      }
-      if(!res.data||res.data.length===0){
-        err.innerHTML=svgWarn+' Code de session introuvable ou session inactive.';
-        err.style.display='block';
-        el('startBtn').disabled=false;el('startBtn').textContent='Commencer';
-        return;
-      }
-      session=res.data[0];
-      NB_Q=session.nb_questions||15;
-      TIMER_SEC=session.timer_sec||300;
-      st.timeLeft=TIMER_SEC;
-
-      el('intro').style.display='none';
-      el('elim').style.display='block';
-      window.scrollTo({top:0,behavior:'smooth'});
-    },function(){
-      err.innerHTML=svgWarn+' Erreur réseau.';
-      err.style.display='block';
-      el('startBtn').disabled=false;el('startBtn').textContent='Commencer';
-    });
+    el('intro').style.display='none';
+    el('elim').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
   }
 
   // ================================================================
