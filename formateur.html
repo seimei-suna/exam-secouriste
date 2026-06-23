@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tableau de bord — Examen Secouriste | Seimei</title>
+<script src="vendor/supabase.js"></script>
+<script src="config.js"></script>
+<style>
+  @import url('vendor/fonts.css');
+  :root{--sand-1:#f4e4c1;--sand-deep:#c89b5e;--ocre:#b5712b;--ocre-deep:#8a4f1a;--rust:#7a3b15;
+    --parchment:#f0dfb8;--chakra:#6fcf97;--chakra-glow:#3ddc84;--blood-light:#c4453a;--gold:#ffd86b;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Cormorant Garamond',serif;color:var(--parchment);min-height:100vh;
+    background:radial-gradient(ellipse at 50% -10%,#5a3d1e 0%,transparent 55%),
+      linear-gradient(160deg,#2e1d0c 0%,#1c1106 60%,#140c04 100%);}
+  body::before{content:"";position:fixed;inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events:none;}
+  .wrap{position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:30px 18px 70px;}
+  header{text-align:center;margin-bottom:24px;}
+  h1{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(1.5rem,4vw,2.4rem);
+    color:var(--sand-1);text-shadow:0 2px 0 var(--rust),0 0 30px rgba(181,113,43,.5);letter-spacing:.05em;}
+  .sub{color:var(--sand-deep);font-style:italic;font-size:1.1rem;margin-top:4px;}
+  .divider{height:2px;width:55%;margin:16px auto 0;background:linear-gradient(90deg,transparent,var(--ocre),transparent);}
+  .panel{background:linear-gradient(160deg,rgba(240,223,184,.07),rgba(60,41,20,.15));
+    border:1px solid rgba(181,113,43,.45);border-radius:14px;padding:22px;margin-bottom:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);}
+  #login{max-width:420px;margin:40px auto;}
+  label{display:block;color:var(--sand-deep);margin-bottom:6px;font-size:1.05rem;}
+  input[type=password],input[type=text],input[type=number]{width:100%;padding:13px 16px;font-family:inherit;font-size:1.1rem;
+    background:rgba(20,12,4,.6);color:var(--sand-1);border:1px solid var(--ocre);border-radius:8px;outline:none;}
+  input[type=password]:focus,input[type=text]:focus,input[type=number]:focus{border-color:var(--chakra);box-shadow:0 0 14px rgba(61,220,132,.3);}
+  input[type=text].search{padding:10px 14px;font-size:1rem;width:auto;}
+  select{padding:10px 14px;font-family:inherit;font-size:1rem;background:rgba(20,12,4,.6);
+    color:var(--sand-1);border:1px solid var(--ocre);border-radius:8px;outline:none;}
+  .btn{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.05em;cursor:pointer;border:none;
+    border-radius:9px;padding:11px 22px;font-size:.9rem;text-transform:uppercase;
+    background:linear-gradient(160deg,var(--ocre),var(--ocre-deep));color:#fff5e6;
+    box-shadow:0 4px 0 var(--rust),0 7px 14px rgba(0,0,0,.4);transition:transform .12s,box-shadow .12s;}
+  .btn:hover{transform:translateY(-2px);}
+  .btn:active{transform:translateY(3px);box-shadow:0 2px 0 var(--rust);}
+  .btn.ghost{background:transparent;border:1px solid var(--ocre);box-shadow:none;color:var(--sand-1);}
+  .btn.sm{padding:5px 12px;font-size:.78rem;box-shadow:0 3px 0 var(--rust);}
+  .btn.recue{background:linear-gradient(160deg,#2a7a4a,#1a5a34);box-shadow:0 3px 0 #0d3a20;}
+  .btn.recale{background:linear-gradient(160deg,#7a2a2a,#5a1a1a);box-shadow:0 3px 0 #3a0d0d;}
+  .btn.desac{background:linear-gradient(160deg,#6e5020,#4a3510);box-shadow:0 3px 0 #2e2008;}
+  #dash{display:none;}
+  /* tabs */
+  .tabs{display:flex;gap:0;margin-bottom:20px;}
+  .tab{flex:1;text-align:center;font-family:'Cinzel',serif;font-weight:700;font-size:1rem;
+    padding:12px 16px;cursor:pointer;letter-spacing:.05em;
+    background:rgba(20,12,4,.4);border:1px solid rgba(181,113,43,.3);color:var(--sand-deep);
+    transition:background .2s,color .2s,border-color .2s;}
+  .tab:first-child{border-radius:10px 0 0 10px;}
+  .tab:last-child{border-radius:0 10px 10px 0;}
+  .tab.active{background:rgba(181,113,43,.2);color:var(--sand-1);border-color:var(--ocre);}
+  .tab:hover:not(.active){background:rgba(181,113,43,.1);color:var(--sand-1);}
+  .tab-content{display:none;}
+  .tab-content.active{display:block;}
+  /* summary cards */
+  .summary{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+  .card{flex:1 1 130px;text-align:center;background:rgba(20,12,4,.5);
+    border:1px solid rgba(181,113,43,.4);border-radius:10px;padding:12px 6px;}
+  .card .lbl{font-size:.82rem;color:var(--sand-deep);text-transform:uppercase;letter-spacing:.07em;}
+  .card .num{font-family:'Cinzel',serif;font-size:1.7rem;font-weight:700;color:var(--sand-1);}
+  .card .num.green{color:var(--chakra-glow);}
+  .card .num.gold{color:var(--gold);}
+  .card .num.red{color:var(--blood-light);}
+  .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+    justify-content:space-between;margin-bottom:18px;}
+  .toolbar .left{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  table{width:100%;border-collapse:collapse;font-size:1.02rem;}
+  th{font-family:'Cinzel',serif;font-weight:700;color:var(--ocre);text-align:left;
+    padding:10px 8px;border-bottom:2px solid rgba(181,113,43,.4);font-size:.88rem;
+    letter-spacing:.04em;cursor:pointer;user-select:none;}
+  th:hover{color:var(--sand-1);}
+  td{padding:9px 8px;border-bottom:1px solid rgba(181,113,43,.18);color:var(--parchment);
+    vertical-align:middle;}
+  tr:hover td{background:rgba(181,113,43,.07);}
+  .score-cell{font-family:'Cinzel',serif;font-weight:700;font-size:1.1rem;}
+  .score-high{color:var(--chakra-glow);}
+  .score-mid{color:var(--gold);}
+  .score-low{color:var(--blood-light);}
+  .time-cell{font-family:'Cinzel',serif;font-size:.95rem;color:var(--sand-deep);}
+  .status-badge{display:inline-block;font-family:'Cinzel',serif;font-weight:700;
+    font-size:.8rem;padding:3px 10px;border-radius:6px;letter-spacing:.05em;}
+  .status-attente{background:rgba(200,155,94,.2);color:var(--sand-deep);}
+  .status-recue{background:rgba(61,220,132,.2);color:var(--chakra-glow);}
+  .status-recale{background:rgba(196,69,58,.2);color:var(--blood-light);}
+  .muted{color:var(--sand-deep);font-size:.92rem;}
+  .empty{text-align:center;color:var(--sand-deep);font-style:italic;padding:30px;}
+  .err{color:#ffcaa0;background:rgba(196,69,58,.12);border:1px solid rgba(196,69,58,.5);
+    border-radius:8px;padding:12px;}
+  .tablewrap{overflow-x:auto;}
+  /* create session */
+  .create-panel{margin-bottom:20px;}
+  .create-panel h2{font-family:'Cinzel',serif;font-weight:700;font-size:1.2rem;color:var(--sand-1);margin-bottom:16px;}
+  .form-row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;align-items:flex-end;}
+  .form-group{flex:1 1 200px;}
+  .form-group label{font-size:.95rem;margin-bottom:4px;}
+  .form-group input[type=number],
+  .form-group input[type=text]{width:100%;padding:10px 14px;font-size:1rem;}
+  .themes-grid{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .theme-check{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:1rem;color:var(--sand-1);}
+  .theme-check input[type=checkbox]{width:18px;height:18px;accent-color:var(--ocre);cursor:pointer;}
+  .theme-check.all-check{color:var(--gold);font-weight:600;}
+  .code-display{text-align:center;padding:20px;margin-top:16px;
+    background:rgba(20,12,4,.5);border:2px solid var(--gold);border-radius:12px;}
+  .code-display .code-label{color:var(--sand-deep);font-size:1rem;margin-bottom:8px;}
+  .code-display .code-value{font-family:'Cinzel',serif;font-size:3rem;font-weight:900;
+    color:var(--gold);letter-spacing:.15em;text-shadow:0 0 20px rgba(255,216,107,.4);}
+  .code-display .code-hint{color:var(--sand-deep);font-style:italic;font-size:.9rem;margin-top:8px;}
+  /* theme badges */
+  .theme-badge{display:inline-block;font-size:.78rem;padding:2px 8px;border-radius:5px;
+    font-weight:600;margin:1px 2px;white-space:nowrap;}
+  .theme-hemorragies{background:rgba(196,69,58,.25);color:#e86b60;}
+  .theme-fractures{background:rgba(100,140,200,.25);color:#7eb0e0;}
+  .theme-brulures{background:rgba(220,160,50,.25);color:#e0a838;}
+  .theme-arret_cardiaque{background:rgba(180,60,120,.25);color:#d06898;}
+  .theme-sutures{background:rgba(100,180,140,.25);color:#68c098;}
+  .theme-soins_generaux{background:rgba(160,140,200,.25);color:#b0a0d8;}
+  /* detail modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .modal{background:#1e1208;border:1px solid var(--ocre);border-radius:14px;
+    width:100%;max-width:700px;max-height:85vh;overflow-y:auto;padding:24px;
+    box-shadow:0 20px 60px rgba(0,0,0,.7);}
+  .modal h3{font-family:'Cinzel',serif;color:var(--gold);font-size:1.2rem;margin-bottom:16px;}
+  .modal-close{float:right;cursor:pointer;color:var(--sand-deep);font-size:1.4rem;line-height:1;}
+  .modal-close:hover{color:var(--sand-1);}
+  .detail-row{padding:10px 0;border-bottom:1px solid rgba(181,113,43,.18);font-size:1rem;}
+  .detail-row:last-child{border:none;}
+  .detail-q{color:var(--sand-1);font-weight:600;margin-bottom:4px;line-height:1.35;}
+  .detail-ans{font-size:.95rem;margin-top:3px;}
+  .detail-ok{color:var(--chakra-glow);}
+  .detail-bad{color:var(--blood-light);}
+  .detail-correct-label{color:var(--sand-deep);font-style:italic;font-size:.9rem;}
+  .elim-badge{display:inline-block;background:rgba(196,69,58,.3);color:var(--blood-light);
+    font-family:'Cinzel',serif;font-size:.85rem;padding:4px 12px;border-radius:6px;
+    border:1px solid rgba(196,69,58,.5);margin-bottom:12px;}
+  footer{text-align:center;margin-top:24px;color:var(--sand-deep);font-style:italic;}
+  footer .seal{color:var(--ocre);font-family:'Cinzel',serif;}
+  .ico{width:1em;height:1em;vertical-align:-.14em;margin-right:.25em}
+  .session-count{font-family:'Cinzel',serif;font-size:.85rem;color:var(--sand-deep);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Tableau de bord — Examen Secouriste</h1>
+    <div class="sub">Section Militaire Médicale Seimei · Sunagakure</div>
+    <div class="divider"></div>
+  </header>
+
+  <div id="login" class="panel">
+    <label for="pw">Mot de passe formateur</label>
+    <input type="password" id="pw" placeholder="••••••••" autocomplete="off">
+    <div style="margin-top:16px;text-align:center;">
+      <button class="btn" id="loginBtn">Accéder</button>
+    </div>
+    <div id="loginErr" class="err" style="display:none;margin-top:12px;">Mot de passe incorrect.</div>
+  </div>
+
+  <div id="dash">
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" data-tab="sessions">Sessions</div>
+      <div class="tab" data-tab="resultats">Résultats</div>
+    </div>
+
+    <!-- ==================== SESSIONS TAB ==================== -->
+    <div class="tab-content active" id="tab-sessions">
+
+      <!-- Create session -->
+      <div class="panel create-panel">
+        <h2>Créer une session d'examen</h2>
+        <label style="margin-bottom:10px">Thèmes :</label>
+        <div class="themes-grid">
+          <label class="theme-check all-check">
+            <input type="checkbox" id="themeAll"> Tout sélectionner
+          </label>
+          <label class="theme-check">
+            <input type="checkbox" class="theme-cb" value="hemorragies"> Hémorragies
+          </label>
+          <label class="theme-check">
+            <input type="checkbox" class="theme-cb" value="fractures"> Fractures
+          </label>
+          <label class="theme-check">
+            <input type="checkbox" class="theme-cb" value="brulures"> Brûlures
+          </label>
+          <label class="theme-check">
+            <input type="checkbox" class="theme-cb" value="arret_cardiaque"> Arrêt cardiaque
+          </label>
+          <label class="theme-check">
+            <input type="checkbox" class="theme-cb" value="sutures"> Sutures
+          </label>
+          <label class="theme-check">
+            <input type="checkbox" class="theme-cb" value="soins_generaux"> Soins généraux
+          </label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="nbQuestions">Nombre de questions</label>
+            <input type="number" id="nbQuestions" value="15" min="5" max="30">
+          </div>
+          <div class="form-group">
+            <label for="timerMin">Durée (minutes)</label>
+            <input type="number" id="timerMin" value="5" min="2" max="15">
+          </div>
+          <div class="form-group">
+            <label for="createdBy">Créé par</label>
+            <input type="text" id="createdBy" placeholder="Nom du formateur">
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:6px;">
+          <button class="btn" id="createBtn">Créer la session</button>
+        </div>
+        <div id="createErr" class="err" style="display:none;margin-top:12px;"></div>
+        <div id="codeResult" class="code-display" style="display:none;">
+          <div class="code-label">Code de la session :</div>
+          <div class="code-value" id="codeValue"></div>
+          <div class="code-hint">Partagez ce code aux candidats pour rejoindre l'examen.</div>
+        </div>
+      </div>
+
+      <!-- Active sessions list -->
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h2 style="font-family:'Cinzel',serif;font-weight:700;font-size:1.1rem;color:var(--sand-1);margin:0;">Sessions actives</h2>
+          <button class="btn ghost sm" id="refreshSessions">Actualiser</button>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Thèmes</th>
+                <th>Questions</th>
+                <th>Durée</th>
+                <th>Créé par</th>
+                <th>Date</th>
+                <th>Participants</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sessionsTbody">
+              <tr><td colspan="8" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== RESULTATS TAB ==================== -->
+    <div class="tab-content" id="tab-resultats">
+      <div class="panel">
+        <div class="summary" id="summary"></div>
+        <div class="toolbar">
+          <div class="left">
+            <input type="text" class="search" id="search" placeholder="Rechercher un candidat...">
+            <select id="filterStatus">
+              <option value="">Tous les statuts</option>
+              <option value="attente">En attente</option>
+              <option value="recue">Reçus</option>
+              <option value="recale">Recalés</option>
+            </select>
+            <select id="filterSession">
+              <option value="">Toutes les sessions</option>
+            </select>
+          </div>
+          <div class="left">
+            <button class="btn ghost" id="refreshBtn">Actualiser</button>
+            <button class="btn ghost" id="csvBtn">Exporter CSV</button>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-sort="created_at">Date</th>
+                <th data-sort="name">Candidat</th>
+                <th>Session</th>
+                <th data-sort="score">Score</th>
+                <th data-sort="correct">Bonnes rép.</th>
+                <th data-sort="time_left">Temps restant</th>
+                <th>Statut</th>
+                <th>Détail</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="9" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL MODAL -->
+  <div class="modal-bg" id="modalBg" style="display:none;" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <span class="modal-close" onclick="closeModal()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg></span>
+      <h3 id="modalTitle">Détail</h3>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer>Données en temps réel · <span class="seal">Seimei</span> · Sunagakure</footer>
+</div>
+
+<script>
+(function(){
+  var el=function(id){return document.getElementById(id);};
+  var sb=null;
+  var sessions=[];
+  var results=[];
+  var sortKey='created_at';
+  var sortDir=-1;
+
+  /* ─── UTILS ─── */
+  function esc(t){
+    t=(t==null?'':''+t);
+    return t.replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];});
+  }
+
+  function fmtDate(d){
+    if(!d)return '-';
+    var dt=new Date(d);
+    if(isNaN(dt))return d;
+    var p=function(x){return (x<10?'0':'')+x;};
+    return p(dt.getDate())+'/'+p(dt.getMonth()+1)+' '+p(dt.getHours())+':'+p(dt.getMinutes());
+  }
+
+  function fmtTime(s){
+    if(s==null)return '-';
+    var m=Math.floor(s/60),sc=s%60;
+    return (m<10?'0':'')+m+':'+(sc<10?'0':'')+sc;
+  }
+
+  function card(l,n,col){
+    var cls=col?(' '+col):'';
+    return '<div class="card"><div class="lbl">'+l+'</div><div class="num'+cls+'">'+n+'</div></div>';
+  }
+
+  function genCode(){
+    var chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    var code='';
+    for(var i=0;i<6;i++){code+=chars.charAt(Math.floor(Math.random()*chars.length));}
+    return code;
+  }
+
+  var THEME_LABELS={
+    hemorragies:'Hémorragies',
+    fractures:'Fractures',
+    brulures:'Brûlures',
+    arret_cardiaque:'Arrêt cardiaque',
+    sutures:'Sutures',
+    soins_generaux:'Soins généraux'
+  };
+
+  function themeBadge(t){
+    var label=THEME_LABELS[t]||t;
+    return '<span class="theme-badge theme-'+esc(t)+'">'+esc(label)+'</span>';
+  }
+
+  function themeBadges(themes){
+    if(!themes||!themes.length)return '<span class="muted">-</span>';
+    return themes.map(function(t){return themeBadge(t);}).join(' ');
+  }
+
+  function getStatus(row){return row.statut||'attente';}
+  function statusLabel(s){return s==='recue'?'Reçu':s==='recale'?'Recalé':'En attente';}
+
+  /* ─── LOGIN ─── */
+  function doLogin(){
+    var pw=el('pw').value;
+    var expected=(typeof FORMATEUR_PASSWORD!=='undefined')?FORMATEUR_PASSWORD:'seimei2024';
+    if(pw===expected){
+      el('login').style.display='none';
+      el('dash').style.display='block';
+      init();
+      loadSessions();
+      loadResults();
+    }else{
+      el('loginErr').style.display='block';
+    }
+  }
+  el('loginBtn').addEventListener('click',doLogin);
+  el('pw').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+
+  function init(){
+    if(typeof SUPABASE_URL==='undefined'||typeof SUPABASE_KEY==='undefined')return;
+    try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){sb=null;}
+  }
+
+  /* ─── TABS ─── */
+  var tabEls=document.querySelectorAll('.tab');
+  tabEls.forEach(function(t){
+    t.addEventListener('click',function(){
+      tabEls.forEach(function(x){x.classList.remove('active');});
+      t.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+      el('tab-'+t.dataset.tab).classList.add('active');
+    });
+  });
+
+  /* ─── SESSIONS ─── */
+  /* theme all checkbox */
+  var themeAll=el('themeAll');
+  var themeCbs=document.querySelectorAll('.theme-cb');
+  themeAll.addEventListener('change',function(){
+    var checked=themeAll.checked;
+    themeCbs.forEach(function(cb){cb.checked=checked;});
+  });
+  themeCbs.forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var allChecked=true;
+      themeCbs.forEach(function(c){if(!c.checked)allChecked=false;});
+      themeAll.checked=allChecked;
+    });
+  });
+
+  function getSelectedThemes(){
+    var arr=[];
+    themeCbs.forEach(function(cb){if(cb.checked)arr.push(cb.value);});
+    return arr;
+  }
+
+  el('createBtn').addEventListener('click',function(){
+    var themes=getSelectedThemes();
+    if(themes.length===0){showCreateErr('Sélectionnez au moins un thème.');return;}
+    var nbQ=parseInt(el('nbQuestions').value,10);
+    if(isNaN(nbQ)||nbQ<5||nbQ>30){showCreateErr('Le nombre de questions doit être entre 5 et 30.');return;}
+    var timerMin=parseInt(el('timerMin').value,10);
+    if(isNaN(timerMin)||timerMin<2||timerMin>15){showCreateErr('La durée doit être entre 2 et 15 minutes.');return;}
+    var createdBy=el('createdBy').value.trim();
+    if(!createdBy){showCreateErr('Indiquez le nom du formateur.');return;}
+    if(!sb){showCreateErr('Configuration Supabase absente.');return;}
+
+    var code=genCode();
+    el('createBtn').disabled=true;
+    el('createErr').style.display='none';
+    el('codeResult').style.display='none';
+
+    sb.from('exam_secouriste_sessions').insert([{
+      code:code,
+      themes:themes,
+      nb_questions:nbQ,
+      timer_sec:timerMin*60,
+      created_by:createdBy,
+      actif:true
+    }]).then(function(res){
+      el('createBtn').disabled=false;
+      if(res.error){
+        /* unique code collision — retry once */
+        if(res.error.message&&res.error.message.indexOf('unique')>=0){
+          var code2=genCode();
+          sb.from('exam_secouriste_sessions').insert([{
+            code:code2,themes:themes,nb_questions:nbQ,timer_sec:timerMin*60,created_by:createdBy,actif:true
+          }]).then(function(r2){
+            if(r2.error){showCreateErr(esc(r2.error.message));return;}
+            showCreatedCode(code2);
+            loadSessions();
+          });
+          return;
+        }
+        showCreateErr(esc(res.error.message));
+        return;
+      }
+      showCreatedCode(code);
+      loadSessions();
+    });
+  });
+
+  function showCreateErr(msg){
+    el('createErr').innerHTML=msg;
+    el('createErr').style.display='block';
+  }
+
+  function showCreatedCode(code){
+    el('codeResult').style.display='block';
+    el('codeValue').textContent=code;
+    el('createErr').style.display='none';
+  }
+
+  function loadSessions(){
+    if(!sb){el('sessionsTbody').innerHTML='<tr><td colspan="8" class="err">Configuration Supabase absente.</td></tr>';return;}
+    el('sessionsTbody').innerHTML='<tr><td colspan="8" class="empty">Chargement...</td></tr>';
+    sb.from('exam_secouriste_sessions').select('*').eq('actif',true).order('created_at',{ascending:false}).then(function(res){
+      if(res.error){el('sessionsTbody').innerHTML='<tr><td colspan="8" class="err">'+esc(res.error.message)+'</td></tr>';return;}
+      sessions=res.data||[];
+      renderSessions();
+    });
+  }
+
+  function renderSessions(){
+    var tb=el('sessionsTbody');
+    if(sessions.length===0){
+      tb.innerHTML='<tr><td colspan="8" class="empty">Aucune session active.</td></tr>';
+      return;
+    }
+    tb.innerHTML='';
+
+    /* we need participant counts — batch query all results for active session codes */
+    var codes=sessions.map(function(s){return s.code;});
+    sb.from('exam_secouriste_results').select('session_code').in('session_code',codes).then(function(cRes){
+      var counts={};
+      if(!cRes.error&&cRes.data){
+        cRes.data.forEach(function(r){
+          counts[r.session_code]=(counts[r.session_code]||0)+1;
+        });
+      }
+      tb.innerHTML='';
+      sessions.forEach(function(s){
+        var themes=s.themes||[];
+        var durMin=Math.floor((s.timer_sec||300)/60);
+        var tr=document.createElement('tr');
+        tr.innerHTML=
+          '<td style="font-family:\'Cinzel\',serif;font-weight:700;color:var(--gold);letter-spacing:.1em;font-size:1.05rem;">'+esc(s.code)+'</td>'+
+          '<td>'+themeBadges(themes)+'</td>'+
+          '<td>'+esc(s.nb_questions)+'</td>'+
+          '<td>'+durMin+' min</td>'+
+          '<td>'+esc(s.created_by)+'</td>'+
+          '<td class="muted">'+fmtDate(s.created_at)+'</td>'+
+          '<td class="session-count">'+(counts[s.code]||0)+'</td>'+
+          '<td><button class="btn sm desac btn-desac">Désactiver</button></td>';
+        tb.appendChild(tr);
+        var btnD=tr.querySelector('.btn-desac');
+        (function(sessionId){
+          btnD.addEventListener('click',function(){desactiverSession(sessionId);});
+        })(s.id);
+      });
+    });
+  }
+
+  function desactiverSession(id){
+    if(!sb)return;
+    sb.from('exam_secouriste_sessions').update({actif:false}).eq('id',id).then(function(res){
+      if(res.error){console.error('Erreur désactivation:',res.error.message);return;}
+      loadSessions();
+    });
+  }
+
+  el('refreshSessions').addEventListener('click',function(){loadSessions();});
+
+  /* ─── RESULTS ─── */
+  function loadResults(){
+    if(!sb){el('tbody').innerHTML='<tr><td colspan="9" class="err">Configuration Supabase absente.</td></tr>';return;}
+    el('tbody').innerHTML='<tr><td colspan="9" class="empty">Chargement...</td></tr>';
+    sb.from('exam_secouriste_results').select('*').order('created_at',{ascending:false}).then(function(res){
+      if(res.error){el('tbody').innerHTML='<tr><td colspan="9" class="err">'+esc(res.error.message)+'</td></tr>';return;}
+      results=res.data||[];
+      populateSessionFilter();
+      renderResults();
+    });
+  }
+
+  function populateSessionFilter(){
+    var sel=el('filterSession');
+    var existing={};
+    /* keep first option */
+    while(sel.options.length>1)sel.remove(1);
+    results.forEach(function(r){
+      if(r.session_code&&!existing[r.session_code]){
+        existing[r.session_code]=true;
+        var opt=document.createElement('option');
+        opt.value=r.session_code;
+        opt.textContent=r.session_code;
+        sel.appendChild(opt);
+      }
+    });
+  }
+
+  function renderResults(){
+    var q=el('search').value.toLowerCase().trim();
+    var fs=el('filterStatus').value;
+    var fSess=el('filterSession').value;
+
+    var list=results.filter(function(r){
+      var okName=!q||(r.name||'').toLowerCase().indexOf(q)>=0;
+      var okStatus=!fs||(getStatus(r)===fs);
+      var okSession=!fSess||r.session_code===fSess;
+      return okName&&okStatus&&okSession;
+    });
+
+    /* summary */
+    var total=results.length;
+    var recus=results.filter(function(r){return getStatus(r)==='recue';}).length;
+    var recales=results.filter(function(r){return getStatus(r)==='recale';}).length;
+    var scored=results.filter(function(r){return r.score!=null;});
+    var avgScore=scored.length?Math.round(scored.reduce(function(a,r){return a+(r.score||0);},0)/scored.length):0;
+    el('summary').innerHTML=
+      card('Total candidats',total)+
+      card('Reçus',recus,'green')+
+      card('Recalés',recales,'red')+
+      card('Score moyen',avgScore+'%','gold');
+
+    /* sort */
+    list.sort(function(a,b){
+      var x=a[sortKey],y=b[sortKey];
+      if(sortKey==='created_at'){x=new Date(x);y=new Date(y);}
+      if(typeof x==='number'&&typeof y==='number'){return (x-y)*sortDir;}
+      if(typeof x==='string'){x=x.toLowerCase();y=(y||'').toLowerCase();}
+      if(x<y)return -1*sortDir;if(x>y)return 1*sortDir;return 0;
+    });
+
+    var tb=el('tbody');
+    if(list.length===0){tb.innerHTML='<tr><td colspan="9" class="empty">Aucun résultat.</td></tr>';return;}
+    tb.innerHTML='';
+    list.forEach(function(r){
+      var status=getStatus(r);
+      var scoreClass=r.score>=75?'score-high':r.score>=50?'score-mid':'score-low';
+      var tl=r.time_left!=null?fmtTime(r.time_left):'-';
+      var elim=r.eliminated?'<span class="elim-badge">ÉLIMINÉ</span>':'';
+      var tr=document.createElement('tr');
+      tr.innerHTML=
+        '<td class="muted">'+fmtDate(r.created_at)+'</td>'+
+        '<td style="font-weight:600">'+esc(r.name)+'</td>'+
+        '<td style="font-family:\'Cinzel\',serif;font-size:.9rem;color:var(--gold);letter-spacing:.08em;">'+esc(r.session_code||'-')+'</td>'+
+        '<td class="score-cell '+scoreClass+'">'+(r.eliminated?'—':r.score!=null?r.score+'%':'-')+'</td>'+
+        '<td>'+(r.eliminated?'—':r.correct!=null?r.correct:'-')+' / '+(r.eliminated?'—':r.total!=null?r.total:'-')+'</td>'+
+        '<td class="time-cell">'+tl+'</td>'+
+        '<td>'+elim+'<span class="status-badge status-'+status+'">'+statusLabel(status)+'</span></td>'+
+        '<td><button class="btn ghost sm btn-detail">Voir</button></td>'+
+        '<td>'+actionBtns(r,status)+'</td>';
+      tb.appendChild(tr);
+      var id=r.id;
+      var btnR=tr.querySelector('.btn-recue');
+      var btnX=tr.querySelector('.btn-recale');
+      var btnD=tr.querySelector('.btn-detail');
+      if(btnR)btnR.addEventListener('click',function(){setStatus(id,'recue');});
+      if(btnX)btnX.addEventListener('click',function(){setStatus(id,'recale');});
+      if(btnD)btnD.addEventListener('click',function(){openDetail(r);});
+    });
+  }
+
+  function actionBtns(r,status){
+    if(status==='attente'){
+      return '<button class="btn sm recue btn-recue" style="margin-right:6px">Reçu</button>'+
+             '<button class="btn sm recale btn-recale">Recalé</button>';
+    }
+    if(status==='recue'){return '<button class="btn sm recale btn-recale">Recalé</button>';}
+    if(status==='recale'){return '<button class="btn sm recue btn-recue">Reçu</button>';}
+    return '';
+  }
+
+  function setStatus(id,status){
+    var row=results.find(function(r){return r.id===id;});
+    if(row)row.statut=status;
+    renderResults();
+    if(!sb)return;
+    sb.from('exam_secouriste_results').update({statut:status}).eq('id',id).then(function(res){
+      if(res.error){
+        console.error('Erreur update statut:',res.error.message);
+        if(row)row.statut=row.statut;
+        renderResults();
+      }
+    });
+  }
+
+  /* ─── DETAIL MODAL ─── */
+  function openDetail(r){
+    el('modalTitle').textContent='Détail — '+r.name+(r.session_code?' ('+r.session_code+')':'')+' — '+fmtDate(r.created_at);
+    var body=el('modalBody');
+    body.innerHTML='';
+    if(r.eliminated){
+      var d=document.createElement('div');
+      d.innerHTML='<div class="elim-badge">Candidat éliminé</div>'+
+        '<p style="color:var(--sand-deep);font-style:italic;margin-top:8px;">Ce candidat a été éliminé durant l\'examen.</p>';
+      body.appendChild(d);
+      el('modalBg').style.display='flex';
+      return;
+    }
+    var answers=[];
+    try{
+      if(r.answers){
+        answers=typeof r.answers==='string'?JSON.parse(r.answers):r.answers;
+      }
+    }catch(e){}
+    if(!answers.length){
+      body.innerHTML='<p class="muted" style="font-style:italic">Aucun détail disponible.</p>';
+      el('modalBg').style.display='flex';
+      return;
+    }
+    /* summary bar */
+    var wrongs=answers.filter(function(a){return !a.ok;});
+    var sumDiv=document.createElement('div');
+    sumDiv.style.cssText='margin-bottom:16px;padding:10px 12px;background:rgba(20,12,4,.4);border-radius:8px;border:1px solid rgba(181,113,43,.3);';
+    sumDiv.innerHTML='<span style="color:var(--chakra-glow);font-weight:700">'+(answers.length-wrongs.length)+' correctes</span> &nbsp;·&nbsp; '+
+      '<span style="color:var(--blood-light);font-weight:700">'+wrongs.length+' erreur'+(wrongs.length>1?'s':'')+'</span> &nbsp;·&nbsp; '+
+      '<span style="color:var(--sand-deep)">Score : '+(r.score!=null?r.score+'%':'—')+'</span>';
+    body.appendChild(sumDiv);
+    answers.forEach(function(a,i){
+      var d=document.createElement('div');
+      d.className='detail-row';
+      var icon=a.ok
+        ?'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg>'
+        :'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+      var cls=a.ok?'detail-ok':'detail-bad';
+      d.innerHTML='<div class="detail-q">'+(i+1)+'. '+esc(a.q)+'</div>'+
+        '<div class="detail-ans '+cls+'">'+icon+' '+esc(a.chosen)+'</div>'+
+        (!a.ok?'<div class="detail-correct-label">Bonne réponse : '+esc(a.correct_answer)+'</div>':'');
+      body.appendChild(d);
+    });
+    el('modalBg').style.display='flex';
+  }
+
+  function closeModal(){el('modalBg').style.display='none';}
+  window.closeModal=closeModal;
+
+  /* ─── SORT ─── */
+  document.querySelectorAll('th[data-sort]').forEach(function(th){
+    th.addEventListener('click',function(){
+      var k=th.dataset.sort;
+      if(sortKey===k){sortDir*=-1;}else{sortKey=k;sortDir=(k==='created_at')?-1:1;}
+      renderResults();
+    });
+  });
+
+  /* ─── FILTERS ─── */
+  el('search').addEventListener('input',renderResults);
+  el('filterStatus').addEventListener('change',renderResults);
+  el('filterSession').addEventListener('change',renderResults);
+  el('refreshBtn').addEventListener('click',function(){loadResults();});
+
+  /* ─── CSV EXPORT ─── */
+  el('csvBtn').addEventListener('click',function(){
+    if(!results.length)return;
+    var cols=['created_at','name','session_code','score','correct','total','time_left','statut'];
+    var headers=['Date','Candidat','Session','Score','Correctes','Total','Temps restant (s)','Statut'];
+    var csv=headers.join(',')+'\n'+results.map(function(r){
+      return cols.map(function(c){
+        var v=r[c]==null?'':(''+r[c]).replace(/"/g,'""');
+        return /[",\n]/.test(v)?'"'+v+'"':v;
+      }).join(',');
+    }).join('\n');
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+    a.download='exam_secouriste_resultats.csv';
+    a.click();
+  });
+
+})();
+</script>
+</body>
+</html>
